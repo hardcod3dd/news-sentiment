@@ -1,43 +1,16 @@
 import feedparser
-import openai
-import re 
 import pandas as pd
+from transformers import pipeline
 
-# Set up the OpenAI API client
-openai.api_key = "apikey"
 final_result = []
 
 # Function to analyze sentiment using ChatGPT
 def analyze_sentiment(text):
-    system_msg = "You are a helpful assistant."
-    user_msg = f"Analyse the sentiment of the following text as single phrase either negative or positive : \"{text}\". The sentiment is: "
-    response = openai.ChatCompletion.create(model="gpt-3.5-turbo",
-                                        messages=[{"role": "system", "content": system_msg},
-                                         {"role": "user", "content": user_msg}])
-    sentiment = response['choices'][0]['message']['content']
-    return sentiment
-
-def find_sentiment(text):
-    # Define a regular expression pattern to match "positive," "negative," or "neutral" (case-insensitive)
-    pattern = re.compile(r'(positive|negative|neutral)', re.IGNORECASE)
-
-    # Search for the pattern in the text
-    match = re.search(pattern, text)
-
-    if match:
-        # Extract the matched word and convert it to lowercase
-        sentiment = match.group(0).lower()
-
-        # Check the sentiment and return it
-        if sentiment == "positive":
-            return "positive"
-        elif sentiment == "negative":
-            return "negative"
-        elif sentiment == "neutral":
-            return "neutral"
-
-    # If no sentiment word is found, return None
-    return None
+    classifier = pipeline("zero-shot-classification", model="MoritzLaurer/mDeBERTa-v3-base-mnli-xnli")
+    sequence_to_classify = text
+    candidate_labels = ["positive", "negative", "neutral"]
+    output = classifier(sequence_to_classify, candidate_labels, multi_label=False)
+    return max(zip(output['scores'], output['labels']))[1]
 
 # Function to fetch news headlines from an RSS feed and analyze sentiment
 def analyze_rss_feed_sentiment(feed_url):
@@ -54,8 +27,8 @@ def analyze_rss_feed_sentiment(feed_url):
 
         # Analyze the sentiment of the news headline
         sentiment = analyze_sentiment(title)
-        final_result.append(find_sentiment(sentiment))
-
+        final_result.append(sentiment)
+    
 if __name__ == "__main__":
     # Define the RSS feed URL
     rss_feed_url = input("RSS Feed URL: ")
